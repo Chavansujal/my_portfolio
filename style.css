@@ -1,0 +1,641 @@
+html {
+  scroll-behavior: smooth;
+}
+
+/* Section Divider */
+.section-divider {
+  height: 4px;
+  background: linear-gradient(to right, #ffcc00, #ffffff22, #ffcc00);
+  border-radius: 2px;
+  margin: 0;
+}
+
+/* Intro Section */
+.intro-section {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  background: #0d0e12;
+  animation: fadeIn 1.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Profile Image */
+.profile-img {
+  max-width: 250px;
+  border: 4px solid #ffcc00;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  animation: float 4s ease-in-out infinite;
+}
+
+.profile-img:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 25px #ffcc00;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Project Cards */
+.project-card {
+  border-radius: 15px;
+  overflow: hidden;
+  background-color: #1c1f26;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+.project-card:hover {
+  transform: translateY(-10px) scale(1.02);
+  box-shadow: 0 0 25px rgba(255, 204, 0, 0.3);
+}
+
+.card-img-top-project-img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+}
+
+.btn-primary {
+  background-color: #ffcc00 !important;
+  border-color: #ffcc00 !important;
+  color: #000 !important;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+.btn-primary:hover {
+  background-color: #ffd633 !important;
+  transform: scale(1.05);
+}
+
+/* Timeline */
+.timeline {
+  border-left: 4px solid #ffc107;
+  padding-left: 25px;
+}
+.timeline-item {
+  padding-left: 35px;
+  margin-bottom: 35px;
+  position: relative;
+}
+.timeline-item::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 5px;
+  width: 15px;
+  height: 15px;
+  background-color: #ffc107;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #ffc107;
+}
+/* Container */
+.spiral-ladder-container {
+  perspective: 1200px;
+  height: 550px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+} /* Rotating spiral wrapper */
+.spiral-ladder {
+  position: relative;
+  width: 500px;
+  height: 700px;
+  transform-style: preserve-3d;
+  animation: spiralMove 10s ease-in-out infinite alternate;
+} /* Card styling */
+.spiral-card {
+  position: absolute;
+  width: 220px;
+  padding: 18px 22px;
+  background: rgba(30, 32, 40, 0.85);
+  color: #fff;
+  border-radius: 14px;
+  box-shadow: 0 5px 20px rgba(255, 193, 7, 0.15);
+  text-align: center;
+  left: 50%;
+  transform: translateX(-50%);
+  backdrop-filter: blur(3px);
+  transition: all 1s ease;
+}
+.spiral-card h5 {
+  color: #ffc107;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+.spiral-card:hover {
+  transform: translateX(-50%) scale(1.1);
+  background: #ffc107c1;
+  color: #000;
+  box-shadow: 0 0 25px #ffc107;
+  z-index: 5;
+} /* Connector line from axis to card */
+.connector {
+  position: absolute;
+  top: 50%;
+  left: -50%;
+  width: 80px;
+  height: 2px;
+  background: linear-gradient(90deg, #ffcc00, #fff7b2);
+  transform: translateY(-50%);
+  box-shadow: 0 0 10px #ffcc00;
+  z-index: -1;
+  border-radius: 5px;
+} /* Glowing central axis */
+.spiral-ladder-container::before {
+  content: "";
+  position: absolute;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(180deg, #ffb400, #ffd65a, #ffb400);
+  box-shadow: 0 0 25px #ffc107;
+  border-radius: 10px;
+  opacity: 0.8;
+}
+.spiral-card:nth-child(1) {
+  transform: translateX(-50%) rotateY(0deg) translateZ(140px) translateY(-240px);
+}
+.spiral-card:nth-child(2) {
+  transform: translateX(-50%) rotateY(60deg) translateZ(140px)
+    translateY(-160px);
+}
+.spiral-card:nth-child(3) {
+  transform: translateX(-50%) rotateY(120deg) translateZ(140px)
+    translateY(-80px);
+}
+.spiral-card:nth-child(4) {
+  transform: translateX(-50%) rotateY(180deg) translateZ(140px) translateY(0px);
+}
+.spiral-card:nth-child(5) {
+  transform: translateX(-50%) rotateY(240deg) translateZ(140px) translateY(80px);
+}
+.spiral-card:nth-child(6) {
+  transform: translateX(-50%) rotateY(300deg) translateZ(140px)
+    translateY(160px);
+}
+.spiral-card:nth-child(7) {
+  transform: translateX(-50%) rotateY(360deg) translateZ(140px)
+    translateY(240px);
+} /* Animation: down + reverse up motion */
+@keyframes spiralMove {
+  0% {
+    transform: rotateY(0deg) translateY(90px);
+  }
+  25% {
+    transform: rotateY(90deg) translateY(180px);
+  }
+  50% {
+    transform: rotateY(180deg) translateY(270px);
+  }
+  75% {
+    transform: rotateY(270deg) translateY(360px);
+  }
+  100% {
+    transform: rotateY(360deg) translateY(360px);
+  }
+} /* Responsive */
+@media (max-width: 768px) {
+  .spiral-ladder {
+    width: 250px;
+    height: 450px;
+  }
+  .spiral-card {
+    width: 180px;
+    font-size: 0.9rem;
+  }
+  .connector {
+    width: 60px;
+  }
+}
+/* ========================= */
+/* ⚡ Animated Skill Cards ⚡ */
+/* ========================= */
+
+.skill-card {
+  background: linear-gradient(145deg, #1a1c23, #20232b);
+  border-radius: 15px;
+  padding: 25px;
+  text-align: center;
+  color: #fff;
+  transition: all 0.4s ease;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(40px) scale(0.95);
+  animation: cardEntry 0.8s ease forwards;
+}
+
+/* Card hover glow + lift */
+.skill-card:hover {
+  transform: translateY(-10px) scale(1.03);
+  box-shadow: 0 0 25px rgba(255, 204, 0, 0.3);
+}
+
+/* Subtle inner light sweep on hover */
+.skill-card::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -75%;
+  width: 50%;
+  height: 200%;
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255, 255, 255, 0.15),
+    transparent
+  );
+  transform: rotate(25deg);
+  transition: all 0.8s ease;
+}
+
+.skill-card:hover::before {
+  left: 130%;
+}
+
+/* Title & Text */
+.skill-card h5 {
+  font-weight: 600;
+  color: #ffcc00;
+  margin-top: 10px;
+  font-size: 1.1rem;
+}
+
+.skill-card p {
+  font-size: 14px;
+  color: #bbb;
+  margin-top: 5px;
+}
+
+/* Optional Bootstrap override */
+.text-purple {
+  color: #7952b3;
+}
+
+/* === Entry Animation === */
+@keyframes cardEntry {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* === Glow Pulse for icons === */
+.skill-card i {
+  animation: iconPulse 2s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+  0%,
+  100% {
+    text-shadow: 0 0 10px rgba(255, 204, 0, 0.4);
+  }
+  50% {
+    text-shadow: 0 0 20px rgba(255, 204, 0, 0.8);
+  }
+}
+
+/* ============================== */
+/* ⚙️ Framework & Library Motion  */
+/* ============================== */
+
+.framework-section,
+.library-section {
+  text-align: center;
+  margin: 100px 0;
+  position: relative;
+  overflow: hidden;
+  background: #0d0e12;
+}
+
+.framework-section h2,
+.library-section h2 {
+  color: #ffcc00;
+  font-size: 2.4rem;
+  margin-bottom: 40px;
+  letter-spacing: 1px;
+  text-shadow: 0 0 10px rgba(255, 204, 0, 0.3);
+}
+
+/* Card container setup */
+.card-container {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  position: relative;
+  animation: slideFlow 10s ease-in-out infinite;
+}
+
+/* Card design */
+.card {
+  background: rgba(28, 31, 38, 0.85);
+  border: 2px solid #ffcc00;
+  border-radius: 15px;
+  padding: 25px 35px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 1.2rem;
+  box-shadow: 0 0 20px rgba(255, 204, 0, 0.2);
+  transition: all 0.4s ease;
+}
+
+/* Hover effect */
+.card:hover {
+  transform: scale(1.08) rotateY(6deg);
+  box-shadow: 0 0 30px rgba(255, 204, 0, 0.6);
+}
+
+/* Animation keyframes: slide + collect + spread */
+@keyframes slideFlow {
+  0% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-30px);
+  }
+  40% {
+    transform: translateX(-100px);
+  }
+  50% {
+    transform: translateX(-180px) scale(0.95);
+  }
+  60% {
+    transform: translateX(-100px);
+  }
+  80% {
+    transform: translateX(30px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* Optional: Staggered motion for more natural feel */
+.card:nth-child(1) {
+  animation: floatCard 6s ease-in-out infinite;
+}
+.card:nth-child(2) {
+  animation: floatCard 6s ease-in-out 0.5s infinite;
+}
+.card:nth-child(3) {
+  animation: floatCard 6s ease-in-out 1s infinite;
+}
+.card:nth-child(4) {
+  animation: floatCard 6s ease-in-out 1.5s infinite;
+}
+
+@keyframes floatCard {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+/* ============================================= */
+/* 🎥 Professional Animated Framework & Library  */
+/* ============================================= */
+
+.framework-section,
+.library-section {
+  margin: 100px 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at top, #0d0e12 60%, #0b0b0f 100%);
+  padding: 60px 20px;
+}
+
+.framework-section h2,
+.library-section h2 {
+  font-size: 2.5rem;
+  color: #ffcc00;
+  margin-bottom: 50px;
+  text-shadow: 0 0 20px rgba(255, 204, 0, 0.4);
+  letter-spacing: 1.5px;
+}
+
+/* Container for flowing animation */
+.flow-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 40px;
+  position: relative;
+  width: 100%;
+  animation: cinematicFlow 12s ease-in-out infinite;
+  perspective: 800px;
+}
+
+/* Card styling */
+.flow-card {
+  min-width: 180px;
+  background: linear-gradient(145deg, #1a1c23, #20232b);
+  border: 2px solid #ffcc00;
+  border-radius: 16px;
+  color: #fff;
+  padding: 25px 30px;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  box-shadow: 0 0 15px rgba(255, 204, 0, 0.15);
+  transform: scale(0.9) rotateY(10deg);
+  opacity: 0.8;
+  transition: all 0.6s ease;
+}
+
+.flow-card:hover {
+  transform: scale(1.05) rotateY(0deg);
+  box-shadow: 0 0 30px rgba(255, 204, 0, 0.5);
+  opacity: 1;
+}
+
+/* ✨ Main cinematic flow animation */
+@keyframes cinematicFlow {
+  0% {
+    transform: translateX(150%) rotateY(25deg);
+    opacity: 0;
+  }
+  20% {
+    transform: translateX(0) rotateY(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(-5%) scale(1.02);
+    opacity: 1;
+  }
+  80% {
+    transform: translateX(-150%) rotateY(-25deg);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateX(150%) rotateY(25deg);
+    opacity: 0;
+  }
+}
+
+/* 🎬 Staggered entry timing for natural flow */
+.flow-card:nth-child(1) {
+  animation: cardDrift 12s ease-in-out infinite 0s;
+}
+.flow-card:nth-child(2) {
+  animation: cardDrift 12s ease-in-out infinite 1s;
+}
+.flow-card:nth-child(3) {
+  animation: cardDrift 12s ease-in-out infinite 2s;
+}
+.flow-card:nth-child(4) {
+  animation: cardDrift 12s ease-in-out infinite 3s;
+}
+
+@keyframes cardDrift {
+  0% {
+    transform: translateX(200%) scale(0.8) rotateY(40deg);
+    opacity: 0;
+  }
+  25% {
+    transform: translateX(0) scale(1) rotateY(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(-5%) scale(1.05);
+    opacity: 1;
+  }
+  75% {
+    transform: translateX(-200%) scale(0.8) rotateY(-40deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(200%) scale(0.8) rotateY(40deg);
+    opacity: 0;
+  }
+}
+
+/* ==================================== */
+/* ⚙️ Combined Framework & Library Cards */
+/* ==================================== */
+
+.tech-slider {
+  text-align: center;
+  margin: 100px 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.section-title {
+  font-size: 2.8rem;
+  color: #ffcc00;
+  margin-bottom: 50px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+/* Outer container */
+.slider-container {
+  overflow: hidden;
+  width: 100%;
+  position: relative;
+}
+
+/* Moving track - 🔥 faster speed */
+.slider-track {
+  display: flex;
+  gap: 30px;
+  animation: slideLeft 12s linear infinite; /* ⏩ Faster scroll */
+}
+
+/* Framework / Library Card */
+.framework-card {
+  min-width: 250px;
+  padding: 25px 30px;
+  border-radius: 15px;
+  background: rgba(30, 32, 40, 0.85);
+  color: #fff;
+  border: 2px solid #ffcc00;
+  box-shadow: 0 0 20px rgba(255, 204, 0, 0.15);
+  transition: all 0.4s ease;
+  text-align: center;
+  backdrop-filter: blur(3px);
+}
+
+.framework-card h5 {
+  color: #ffcc00;
+  font-size: 1.3rem;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.framework-card p {
+  font-size: 0.9rem;
+  color: #ccc;
+  line-height: 1.4;
+}
+
+.framework-card:hover {
+  transform: scale(1.07);
+  box-shadow: 0 0 30px rgba(255, 204, 0, 0.4);
+  background: #ffcc00d7;
+  color: #000;
+}
+
+.framework-card:hover h5 {
+  color: #000;
+}
+
+/* Smooth continuous scroll animation */
+@keyframes slideLeft {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .framework-card {
+    min-width: 180px;
+    padding: 18px;
+  }
+  .slider-track {
+    gap: 20px;
+    animation: slideLeft 18s linear infinite; /* ⏳ slightly slower for mobile */
+  }
+}
+
+/* Footer */
+footer {
+  border-top: 1px solid #444;
+}
+footer .social-icon:hover {
+  color: #fbbf24;
+  transform: scale(1.2);
+}

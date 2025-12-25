@@ -568,7 +568,7 @@ html {
 .slider-track {
   display: flex;
   gap: 30px;
-  animation: slideLeft 6s linear infinite; /* ⏩ Faster scroll */
+  animation: slideLeft 5s linear infinite; /* ⏩ Faster scroll */
 }
 
 /* Framework / Library Card */

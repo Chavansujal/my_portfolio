@@ -30,10 +30,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const canvasCtx = gestureCanvas.getContext('2d');
 
   let gestureEnabled = false;
-  let handLandmarker = null;
   let stream = null;
-  let animFrameId = null;
-  let lastVideoTime = -1;
+  let gestureSocket = null;
+  let socketReady = false;
+  let frameInFlight = false;
+  let captureTimerId = null;
 
   let targetRotateX = 4;
   let targetRotateY = -8;
@@ -49,17 +50,39 @@ document.addEventListener('DOMContentLoaded', () => {
   let noHandFrames = 0;
   let pinchActive = false;
   let pinchLatch = false;
+  let pendingAirTap = false;
+  let lastAirTapTime = 0;
   let hoveredElement = null;
   let particles = [];
+  let lastScrollHandY = null;
 
   const LERP_FACTOR = 0.14;
   const NO_HAND_THRESHOLD = 15;
   const EDGE_SCROLL_ZONE = 90;
   const EDGE_SCROLL_SPEED = 18;
+  const GESTURE_SCROLL_GAIN = 160;
+  const GESTURE_SCROLL_DEADZONE = 0.008;
   const PINCH_THRESHOLD = 0.055;
   const PINCH_RELEASE = 0.085;
+  const DOUBLE_TAP_WINDOW = 550;
   const INTERACTIVE_SELECTOR =
     'a, button, [role="button"], .project-card, .timeline-card, .contact-icon, .nav-logo, .framework-chip, .skill-icon-card, .gesture-toggle';
+  const CAMERA_LABEL_PREFERENCES = [
+    { pattern: /integrated|internal|built-?in/i, score: 80 },
+    { pattern: /facetime|front|user/i, score: 60 },
+    { pattern: /laptop|notebook/i, score: 50 },
+    { pattern: /hd webcam|camera/i, score: 30 },
+    { pattern: /virtual|obs|snap|droidcam|epoccam|camo/i, score: -120 },
+    { pattern: /usb|external/i, score: -40 },
+  ];
+  const FRAME_SEND_INTERVAL = 90;
+  const CAPTURE_WIDTH = 320;
+  const CAPTURE_HEIGHT = 240;
+  const captureCanvas = document.createElement('canvas');
+  const captureCtx = captureCanvas.getContext('2d', { willReadFrequently: true });
+
+  captureCanvas.width = CAPTURE_WIDTH;
+  captureCanvas.height = CAPTURE_HEIGHT;
 
   function lerp(a, b, t) {
     return a + (b - a) * t;
@@ -70,6 +93,81 @@ document.addEventListener('DOMContentLoaded', () => {
     el.textContent = text;
     el.classList.remove('on', 'off');
     if (mode) el.classList.add(mode);
+  }
+
+  function getPreferredCameraDeviceId(devices) {
+    const videoInputs = devices.filter((device) => device.kind === 'videoinput');
+    if (videoInputs.length === 0) return null;
+
+    const ranked = videoInputs
+      .map((device, index) => {
+        const label = device.label || '';
+        let score = 0;
+
+        CAMERA_LABEL_PREFERENCES.forEach(({ pattern, score: value }) => {
+          if (pattern.test(label)) score += value;
+        });
+
+        return { deviceId: device.deviceId, score, index };
+      })
+      .sort((a, b) => b.score - a.score || a.index - b.index);
+
+    return ranked[0].deviceId;
+  }
+
+  function getCameraConstraints(deviceId) {
+    const video = {
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+      frameRate: { ideal: 30, max: 60 },
+      facingMode: { ideal: 'user' },
+    };
+
+    if (deviceId) {
+      video.deviceId = { exact: deviceId };
+    }
+
+    return { video, audio: false };
+  }
+
+  function syncGestureSurfaceSize() {
+    const width = gestureVideo.videoWidth || 640;
+    const height = gestureVideo.videoHeight || 480;
+    gestureCanvas.width = width;
+    gestureCanvas.height = height;
+  }
+
+  function getGestureSocketUrl() {
+    if (!window.location.host) return null;
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}/ws/gesture`;
+  }
+
+  function clearCaptureTimer() {
+    if (captureTimerId) {
+      window.clearTimeout(captureTimerId);
+      captureTimerId = null;
+    }
+  }
+
+  function resetGestureTracking() {
+    noHandFrames = 0;
+    pinchActive = false;
+    pinchLatch = false;
+    pendingAirTap = false;
+    lastAirTapTime = 0;
+    smoothHandX = 0.5;
+    smoothHandY = 0.5;
+    lastScrollHandY = null;
+  }
+
+  function isPointerMode(fingerInfo) {
+    return (
+      fingerInfo.raised.index &&
+      !fingerInfo.raised.middle &&
+      !fingerInfo.raised.ring &&
+      !fingerInfo.raised.pinky
+    );
   }
 
   function updateNavbar() {
@@ -353,6 +451,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function handleGestureScroll(hand, fingerInfo) {
+    const indexTip = hand[8];
+    const pointerMode = isPointerMode(fingerInfo);
+
+    if (!pointerMode) {
+      lastScrollHandY = null;
+      return;
+    }
+
+    if (lastScrollHandY === null) {
+      lastScrollHandY = indexTip.y;
+      return;
+    }
+
+    const deltaY = indexTip.y - lastScrollHandY;
+    lastScrollHandY = indexTip.y;
+
+    if (Math.abs(deltaY) < GESTURE_SCROLL_DEADZONE) return;
+
+    window.scrollBy({
+      top: deltaY * window.innerHeight * GESTURE_SCROLL_GAIN,
+      behavior: 'auto',
+    });
+  }
+
   function countRaisedFingers(hand) {
     let count = 0;
     const raised = {
@@ -438,84 +561,260 @@ document.addEventListener('DOMContentLoaded', () => {
     const thumbTip = hand[4];
     const pointerX = (1 - indexTip.x) * window.innerWidth;
     const pointerY = indexTip.y * window.innerHeight;
+    const pointerMode = isPointerMode(fingerInfo);
 
-    const nextX = lerp(cursorX, pointerX, 0.28);
-    const nextY = lerp(cursorY, pointerY, 0.28);
+    handleGestureScroll(hand, fingerInfo);
 
-    updateGestureCursor(nextX, nextY);
-    updateHoverTarget(nextX, nextY);
-    handleEdgeScroll(nextX, nextY);
+    if (pointerMode) {
+      const nextX = lerp(cursorX, pointerX, 0.28);
+      const nextY = lerp(cursorY, pointerY, 0.28);
+      updateGestureCursor(nextX, nextY);
+      updateHoverTarget(nextX, nextY);
+    } else {
+      pendingAirTap = false;
+      clearHoveredElement();
+      gestureCursor.classList.remove('clicking');
+    }
 
     const pinchDistance = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
-    const pointerMode =
-      fingerInfo.raised.index &&
-      !fingerInfo.raised.middle &&
-      !fingerInfo.raised.ring &&
-      !fingerInfo.raised.pinky;
 
     if (pointerMode && pinchDistance < PINCH_THRESHOLD && !pinchLatch) {
+      const now = performance.now();
       pinchLatch = true;
       pinchActive = true;
       gestureCursor.classList.add('clicking');
-      activateTarget(hoveredElement);
+
+      if (pendingAirTap && now - lastAirTapTime <= DOUBLE_TAP_WINDOW) {
+        activateTarget(hoveredElement);
+        pendingAirTap = false;
+        lastAirTapTime = 0;
+      } else {
+        pendingAirTap = true;
+        lastAirTapTime = now;
+      }
     } else if (pinchDistance > PINCH_RELEASE) {
       pinchLatch = false;
       pinchActive = false;
       gestureCursor.classList.remove('clicking');
     }
+
+    if (pendingAirTap && performance.now() - lastAirTapTime > DOUBLE_TAP_WINDOW) {
+      pendingAirTap = false;
+      lastAirTapTime = 0;
+    }
   }
 
-  async function initHandLandmarker() {
-    try {
-      const vision = await window.FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm'
-      );
+  function disconnectGestureBackend() {
+    socketReady = false;
+    frameInFlight = false;
+    clearCaptureTimer();
 
-      try {
-        handLandmarker = await window.HandLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath:
-              'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
-            delegate: 'GPU',
-          },
-          runningMode: 'VIDEO',
-          numHands: 1,
-          minHandDetectionConfidence: 0.5,
-          minHandPresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5,
-        });
-      } catch (gpuErr) {
-        console.warn('GPU delegate failed, using CPU fallback:', gpuErr);
-        handLandmarker = await window.HandLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath:
-              'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
-            delegate: 'CPU',
-          },
-          runningMode: 'VIDEO',
-          numHands: 1,
-          minHandDetectionConfidence: 0.5,
-          minHandPresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5,
-        });
+    if (gestureSocket) {
+      gestureSocket.onopen = null;
+      gestureSocket.onmessage = null;
+      gestureSocket.onerror = null;
+      gestureSocket.onclose = null;
+
+      if (
+        gestureSocket.readyState === WebSocket.OPEN ||
+        gestureSocket.readyState === WebSocket.CONNECTING
+      ) {
+        gestureSocket.close();
       }
 
-      return true;
-    } catch (err) {
-      console.error('HandLandmarker init error:', err);
+      gestureSocket = null;
+    }
+  }
+
+  function processGestureResult(payload) {
+    if (!gestureEnabled) return;
+
+    if (payload.landmarks && payload.landmarks.length > 0) {
+      noHandFrames = 0;
+
+      const hand = payload.landmarks[0];
+      const fingerInfo = payload.fingerInfo || countRaisedFingers(hand);
+      const trackPoint = hand[9];
+      const rawX = 1 - trackPoint.x;
+      const rawY = trackPoint.y;
+
+      smoothHandX = lerp(smoothHandX, rawX, LERP_FACTOR);
+      smoothHandY = lerp(smoothHandY, rawY, LERP_FACTOR);
+
+      applyGestureParallax(smoothHandX, smoothHandY);
+      updateGesturePointer(hand, fingerInfo);
+      drawLandmarks(payload.landmarks, fingerInfo);
+
+      setStatus(statusHand, 'Yes', 'on');
+      setStatus(
+        statusFingers,
+        `${fingerInfo.count} up / ${pinchActive ? 'Pinch' : 'Tracking'}`,
+        fingerInfo.count > 0 ? 'on' : 'off'
+      );
+      return;
+    }
+
+    noHandFrames += 1;
+
+    if (noHandFrames > NO_HAND_THRESHOLD) {
+      canvasCtx.clearRect(0, 0, gestureCanvas.width, gestureCanvas.height);
+      setStatus(statusHand, 'No', 'off');
+      setStatus(statusFingers, '--', '');
+      pinchActive = false;
+      pinchLatch = false;
+      pendingAirTap = false;
+      lastAirTapTime = 0;
+      lastScrollHandY = null;
+      gestureCursor.classList.remove('clicking');
+      clearHoveredElement();
+    }
+  }
+
+  function queueGestureFrame(delay = FRAME_SEND_INTERVAL) {
+    clearCaptureTimer();
+
+    if (!gestureEnabled || !socketReady) return;
+
+    captureTimerId = window.setTimeout(sendGestureFrame, delay);
+  }
+
+  function sendGestureFrame() {
+    if (!gestureEnabled || !socketReady || !gestureSocket) return;
+
+    if (frameInFlight) {
+      queueGestureFrame(FRAME_SEND_INTERVAL);
+      return;
+    }
+
+    if (gestureVideo.readyState < 2) {
+      queueGestureFrame(120);
+      return;
+    }
+
+    captureCtx.drawImage(gestureVideo, 0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT);
+    frameInFlight = true;
+
+    captureCanvas.toBlob((blob) => {
+      if (!blob || !gestureSocket || gestureSocket.readyState !== WebSocket.OPEN) {
+        frameInFlight = false;
+        queueGestureFrame(150);
+        return;
+      }
+
+      try {
+        gestureSocket.send(blob);
+      } catch (err) {
+        console.error('Gesture frame send error:', err);
+        frameInFlight = false;
+        queueGestureFrame(200);
+      }
+    }, 'image/jpeg', 0.7);
+  }
+
+  async function initGestureBackend() {
+    const socketUrl = getGestureSocketUrl();
+    if (!socketUrl) {
+      console.error('Gesture backend requires running from the Python server, not file://');
       return false;
     }
+
+    if (gestureSocket && socketReady) {
+      return true;
+    }
+
+    disconnectGestureBackend();
+
+    return new Promise((resolve) => {
+      let settled = false;
+      const timeoutId = window.setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        disconnectGestureBackend();
+        resolve(false);
+      }, 5000);
+      const socket = new WebSocket(socketUrl);
+      gestureSocket = socket;
+      socket.binaryType = 'arraybuffer';
+
+      socket.onopen = () => {
+        window.clearTimeout(timeoutId);
+        socketReady = true;
+        settled = true;
+        resolve(true);
+      };
+
+      socket.onmessage = (event) => {
+        frameInFlight = false;
+
+        try {
+          const payload = JSON.parse(event.data);
+          processGestureResult(payload);
+        } catch (err) {
+          console.error('Gesture payload error:', err);
+        }
+
+        queueGestureFrame();
+      };
+
+      socket.onerror = (err) => {
+        console.error('Gesture backend connection error:', err);
+        window.clearTimeout(timeoutId);
+        socketReady = false;
+
+        if (!settled) {
+          settled = true;
+          resolve(false);
+        }
+      };
+
+      socket.onclose = () => {
+        window.clearTimeout(timeoutId);
+        socketReady = false;
+        frameInFlight = false;
+        clearCaptureTimer();
+
+        if (gestureEnabled) {
+          setStatus(statusGesture, 'Python Offline', 'off');
+        }
+
+        if (!settled) {
+          settled = true;
+          resolve(false);
+        }
+      };
+    });
   }
 
   async function startCamera() {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, facingMode: 'user' },
-      });
+      if (stream) {
+        stopCamera();
+      }
+
+      let preferredDeviceId = null;
+      let nextStream = await navigator.mediaDevices.getUserMedia(getCameraConstraints());
+
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        preferredDeviceId = getPreferredCameraDeviceId(devices);
+      } catch (deviceErr) {
+        console.warn('Could not enumerate cameras, using default camera:', deviceErr);
+      }
+
+      const activeTrack = nextStream.getVideoTracks()[0];
+      const activeDeviceId = activeTrack?.getSettings?.().deviceId;
+
+      if (preferredDeviceId && preferredDeviceId !== activeDeviceId) {
+        nextStream.getTracks().forEach((track) => track.stop());
+        nextStream = await navigator.mediaDevices.getUserMedia(
+          getCameraConstraints(preferredDeviceId)
+        );
+      }
+
+      stream = nextStream;
       gestureVideo.srcObject = stream;
-      gestureCanvas.width = 640;
-      gestureCanvas.height = 480;
       await gestureVideo.play();
+      syncGestureSurfaceSize();
       return true;
     } catch (err) {
       console.error('Camera error:', err);
@@ -533,10 +832,8 @@ document.addEventListener('DOMContentLoaded', () => {
       gestureVideo.srcObject = null;
     }
 
-    if (animFrameId) {
-      cancelAnimationFrame(animFrameId);
-      animFrameId = null;
-    }
+    clearCaptureTimer();
+    frameInFlight = false;
   }
 
   function drawLandmarks(landmarks, raisedInfo) {
@@ -614,84 +911,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function detectLoop() {
-    if (!gestureEnabled || !handLandmarker) return;
-
-    if (gestureVideo.readyState >= 2) {
-      const currentTime = gestureVideo.currentTime;
-
-      if (currentTime !== lastVideoTime) {
-        lastVideoTime = currentTime;
-
-        let result;
-        try {
-          result = handLandmarker.detectForVideo(gestureVideo, performance.now());
-        } catch (err) {
-          console.warn('Detection frame error:', err);
-          animFrameId = requestAnimationFrame(detectLoop);
-          return;
-        }
-
-        if (result.landmarks && result.landmarks.length > 0) {
-          noHandFrames = 0;
-
-          const hand = result.landmarks[0];
-          const fingerInfo = countRaisedFingers(hand);
-          const trackPoint = hand[9];
-          const rawX = 1 - trackPoint.x;
-          const rawY = trackPoint.y;
-
-          smoothHandX = lerp(smoothHandX, rawX, LERP_FACTOR);
-          smoothHandY = lerp(smoothHandY, rawY, LERP_FACTOR);
-
-          applyGestureParallax(smoothHandX, smoothHandY);
-          updateGesturePointer(hand, fingerInfo);
-          drawLandmarks(result.landmarks, fingerInfo);
-
-          setStatus(statusHand, 'Yes', 'on');
-          setStatus(
-            statusFingers,
-            `${fingerInfo.count} up / ${pinchActive ? 'Pinch' : 'Tracking'}`,
-            fingerInfo.count > 0 ? 'on' : 'off'
-          );
-        } else {
-          noHandFrames += 1;
-
-          if (noHandFrames > NO_HAND_THRESHOLD) {
-            canvasCtx.clearRect(0, 0, gestureCanvas.width, gestureCanvas.height);
-            setStatus(statusHand, 'No', 'off');
-            setStatus(statusFingers, '--', '');
-            pinchActive = false;
-            pinchLatch = false;
-            gestureCursor.classList.remove('clicking');
-            clearHoveredElement();
-          }
-        }
-      }
-    }
-
-    animFrameId = requestAnimationFrame(detectLoop);
-  }
 
   async function enableGestureMode() {
     gestureToggle.classList.add('active');
     gestureToggleLabel.textContent = 'Starting...';
     gestureStatus.classList.add('visible');
     setStatus(statusGesture, 'Loading', 'on');
+    setStatus(statusCamera, 'Connecting', '');
 
-    if (!handLandmarker) {
-      const modelOk = await initHandLandmarker();
-      if (!modelOk) {
-        gestureToggle.classList.remove('active');
-        gestureToggleLabel.textContent = 'Gesture Unavailable';
-        setStatus(statusGesture, 'Unavailable', 'off');
-        setStatus(statusCamera, 'Off', 'off');
-        return;
-      }
+    const backendOk = await initGestureBackend();
+    if (!backendOk) {
+      gestureToggle.classList.remove('active');
+      gestureToggleLabel.textContent = 'Gesture Unavailable';
+      setStatus(statusGesture, 'Python Offline', 'off');
+      setStatus(statusCamera, 'Off', 'off');
+      return;
     }
 
+    setStatus(statusGesture, 'Backend Ready', 'on');
+    setStatus(statusCamera, 'Requesting', '');
     const cameraOk = await startCamera();
     if (!cameraOk) {
+      disconnectGestureBackend();
       gestureToggle.classList.remove('active');
       gestureToggleLabel.textContent = 'Camera Denied';
       setStatus(statusCamera, 'Denied', 'off');
@@ -700,43 +941,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     gestureEnabled = true;
-    noHandFrames = 0;
-    pinchActive = false;
-    pinchLatch = false;
-    smoothHandX = 0.5;
-    smoothHandY = 0.5;
-    lastVideoTime = -1;
+    resetGestureTracking();
 
     document.body.classList.add('gesture-mode');
-    gesturePreview.classList.add('visible');
+    gesturePreview.classList.remove('visible');
+    gesturePreview.setAttribute('hidden', 'hidden');
     gestureCursor.classList.add('visible');
     gestureToggleLabel.textContent = 'Gesture On';
     setStatus(statusCamera, 'Active', 'on');
-    setStatus(statusGesture, 'Hand Only', 'on');
+    setStatus(statusGesture, 'Python Active', 'on');
     setStatus(statusHand, 'Searching', '');
     setStatus(statusFingers, '--', '');
 
     updateGestureCursor(window.innerWidth * 0.5, window.innerHeight * 0.5);
     mouseX = cursorX;
     mouseY = cursorY;
-
-    if (gestureVideo.readyState >= 2) {
-      detectLoop();
-    } else {
-      gestureVideo.addEventListener('loadeddata', detectLoop, { once: true });
-    }
+    queueGestureFrame(120);
   }
 
   function disableGestureMode() {
     gestureEnabled = false;
     pinchActive = false;
     pinchLatch = false;
+    pendingAirTap = false;
+    lastAirTapTime = 0;
     stopCamera();
+    disconnectGestureBackend();
     clearGestureTransforms();
     clearHoveredElement();
 
     gestureCursor.classList.remove('visible', 'clicking', 'hovering');
     gesturePreview.classList.remove('visible');
+    gesturePreview.setAttribute('hidden', 'hidden');
     document.body.classList.remove('gesture-mode');
 
     gestureToggle.classList.remove('active');
@@ -764,12 +1000,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  window.addEventListener('beforeunload', stopCamera);
+  window.addEventListener('beforeunload', () => {
+    stopCamera();
+    disconnectGestureBackend();
+  });
 
   setStatus(statusCamera, 'Auto', '');
-  setStatus(statusGesture, 'Starting', 'on');
+  setStatus(statusGesture, 'Ready', '');
   setStatus(statusHand, '--', '');
   setStatus(statusFingers, '--', '');
-
-  enableGestureMode();
+  gesturePreview.setAttribute('hidden', 'hidden');
 });

@@ -1,0 +1,4 @@
+aiohttp
+mediapipe
+numpy
+opencv-python

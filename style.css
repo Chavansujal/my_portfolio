@@ -1609,57 +1609,6 @@ h1, h2, h3, h4, h5, h6 {
   pointer-events: none;
 }
 
-<<<<<<< HEAD
-/* Moving track - 🔥 faster speed */
-.slider-track {
-  display: flex;
-  gap: 30px;
-  animation: slideLeft 5s linear infinite; /* ⏩ Faster scroll */
-}
-
-/* Framework / Library Card */
-.framework-card {
-  min-width: 250px;
-  padding: 25px 30px;
-  border-radius: 15px;
-  background: rgba(30, 32, 40, 0.85);
-  color: #fff;
-  border: 2px solid #ffcc00;
-  box-shadow: 0 0 20px rgba(255, 204, 0, 0.15);
-  transition: all 0.4s ease;
-  text-align: center;
-  backdrop-filter: blur(3px);
-}
-
-.framework-card h5 {
-  color: #ffcc00;
-  font-size: 1.3rem;
-  margin-bottom: 10px;
-  font-weight: 600;
-}
-
-.framework-card p {
-  font-size: 0.9rem;
-  color: #ccc;
-  line-height: 1.4;
-}
-
-.framework-card:hover {
-  transform: scale(1.07);
-  box-shadow: 0 0 30px rgba(255, 204, 0, 0.4);
-  background: #ffcc00d7;
-  color: #000;
-}
-
-.framework-card:hover h5 {
-  color: #000;
-}
-
-/* Smooth continuous scroll animation */
-@keyframes slideLeft {
-  0% {
-    transform: translateX(0);
-=======
 /* ============================================= */
 /*  RESPONSIVE                                    */
 /* ============================================= */
@@ -1667,7 +1616,6 @@ h1, h2, h3, h4, h5, h6 {
   .hero .container {
     grid-template-columns: 1fr;
     gap: 40px;
->>>>>>> 40db4a5 (UI updated)
   }
   .hero-visual { display: none; }
   .hero-content { text-align: center; }
@@ -1785,3 +1733,5 @@ h1, h2, h3, h4, h5, h6 {
   .contact-links { gap: 14px; }
   .contact-icon { width: 46px; height: 46px; font-size: 1.1rem; }
 }
+
+

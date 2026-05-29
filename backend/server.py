@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from urllib.request import urlretrieve
 
@@ -125,29 +126,17 @@ async def gesture_socket(request: web.Request) -> web.WebSocketResponse:
     return ws
 
 
-async def serve_file(request: web.Request) -> web.StreamResponse:
-    rel_path = request.match_info.get("path", "") or "index.html"
-    file_path = (ROOT / rel_path).resolve()
-
-    if ROOT not in file_path.parents and file_path != ROOT:
-        raise web.HTTPForbidden()
-
-    if file_path.is_dir():
-        file_path = file_path / "index.html"
-
-    if not file_path.exists():
-        raise web.HTTPNotFound()
-
-    return web.FileResponse(path=file_path)
+async def health_check(request: web.Request) -> web.Response:
+    return web.json_response({"status": "ok"})
 
 
 def create_app() -> web.Application:
     app = web.Application()
+    app.router.add_get("/health", health_check)
     app.router.add_get("/ws/gesture", gesture_socket)
-    app.router.add_get("/", serve_file)
-    app.router.add_get("/{path:.*}", serve_file)
     return app
 
 
 if __name__ == "__main__":
-    web.run_app(create_app(), host="127.0.0.1", port=8000)
+    port = int(os.environ.get("PORT", "8000"))
+    web.run_app(create_app(), host="0.0.0.0", port=port)

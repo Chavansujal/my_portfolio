@@ -1,4 +1,4 @@
 aiohttp
 mediapipe
 numpy
-opencv-python
+opencv-python-headless

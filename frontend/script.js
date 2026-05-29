@@ -137,7 +137,33 @@ document.addEventListener('DOMContentLoaded', () => {
     gestureCanvas.height = height;
   }
 
+  function toGestureSocketUrl(baseUrl) {
+    if (!baseUrl) return null;
+
+    try {
+      const url = new URL(baseUrl);
+
+      if (url.protocol === 'http:') {
+        url.protocol = 'ws:';
+      } else if (url.protocol === 'https:') {
+        url.protocol = 'wss:';
+      }
+
+      url.pathname = '/ws/gesture';
+      url.search = '';
+      url.hash = '';
+      return url.toString();
+    } catch (err) {
+      console.error('Invalid gesture backend URL:', err);
+      return null;
+    }
+  }
+
   function getGestureSocketUrl() {
+    const configuredBackend = window.GESTURE_BACKEND_URL;
+    const configuredSocket = toGestureSocketUrl(configuredBackend);
+    if (configuredSocket) return configuredSocket;
+
     if (!window.location.host) return null;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${protocol}//${window.location.host}/ws/gesture`;
@@ -714,7 +740,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function initGestureBackend() {
     const socketUrl = getGestureSocketUrl();
     if (!socketUrl) {
-      console.error('Gesture backend requires running from the Python server, not file://');
+      console.error('Set GESTURE_BACKEND_URL to your Render backend URL.');
       return false;
     }
 
@@ -731,7 +757,7 @@ document.addEventListener('DOMContentLoaded', () => {
         settled = true;
         disconnectGestureBackend();
         resolve(false);
-      }, 5000);
+      }, 15000);
       const socket = new WebSocket(socketUrl);
       gestureSocket = socket;
       socket.binaryType = 'arraybuffer';

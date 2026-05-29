@@ -1,0 +1,1 @@
+window.GESTURE_BACKEND_URL = "";

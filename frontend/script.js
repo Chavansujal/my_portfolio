@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
     el.classList.remove('on', 'off');
     if (mode) el.classList.add(mode);
   }
-
+  // camera access for hand gesture
   function getPreferredCameraDeviceId(devices) {
     const videoInputs = devices.filter((device) => device.kind === 'videoinput');
     if (videoInputs.length === 0) return null;
@@ -130,6 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return { video, audio: false };
   }
 
+  //it detects the hand gesture
   function syncGestureSurfaceSize() {
     const width = gestureVideo.videoWidth || 640;
     const height = gestureVideo.videoHeight || 480;
